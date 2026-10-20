@@ -115,6 +115,8 @@ Windows PowerShell 以后可以这样用：
 
 [查看完整避坑说明：定时任务、旧聊天、缓存、联网和常见报错](docs/deepseek-and-troubleshooting.md)。
 
+另外复查了 Gemini / Antigravity 里的历史排查，补了[切换账号踩坑清单](docs/switching-errors.md)：包括定时任务缺少关联编号、整理旧聊天时报错、反复重连、多个切换工具互相覆盖，以及哪些旧“万能修复”不能照抄。
+
 ## 出问题先做什么？
 
 | 看到的情况 | 先做这一步 |
