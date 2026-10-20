@@ -403,9 +403,9 @@ def doctor(home, apply=False):
             if not count:
                 continue
             private_dir((b / rel).parent)
-            with sqlite3.connect(path.as_uri() + "?mode=ro", uri=True) as src, sqlite3.connect(b / rel) as dst:
+            with contextlib.closing(sqlite3.connect(path.as_uri() + "?mode=ro", uri=True)) as src, contextlib.closing(sqlite3.connect(b / rel)) as dst:
                 src.backup(dst)
-            with sqlite3.connect(path) as con:
+            with contextlib.closing(sqlite3.connect(path)) as con, con:
                 con.execute("PRAGMA busy_timeout=5000")
                 con.execute("UPDATE threads SET model_provider=? WHERE preview != '' AND model_provider != ?", (expected, expected))
                 con.execute("UPDATE threads SET has_user_event=1 WHERE has_user_event=0 AND first_user_message != ''")

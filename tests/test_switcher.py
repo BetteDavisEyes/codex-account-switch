@@ -5,6 +5,7 @@ import json
 import os
 from pathlib import Path
 import sqlite3
+import subprocess
 import tempfile
 import tomllib
 import unittest
@@ -125,7 +126,7 @@ class Tests(unittest.TestCase):
 
     def test_unsupported_schema_is_untouched(self):
         p = self.home / "state_5.sqlite"
-        with sqlite3.connect(p) as con: con.execute("CREATE TABLE threads (id TEXT)")
+        with contextlib.closing(sqlite3.connect(p)) as con, con: con.execute("CREATE TABLE threads (id TEXT)")
         before = p.read_bytes()
         m.doctor(self.home, True)
         self.assertEqual(p.read_bytes(), before)
@@ -134,13 +135,13 @@ class Tests(unittest.TestCase):
         p = self.home / "state_5.sqlite"
         session = self.home / "sessions/test.jsonl"
         m.atomic(session, b'{"synthetic":"original"}\n')
-        with sqlite3.connect(p) as con:
+        with contextlib.closing(sqlite3.connect(p)) as con, con:
             con.execute("CREATE TABLE threads (model_provider TEXT, preview TEXT, has_user_event INT, first_user_message TEXT)")
             con.execute("INSERT INTO threads VALUES ('old','preview',0,'hello')")
         m.doctor(self.home, False)
-        with sqlite3.connect(p) as con: self.assertEqual(con.execute("SELECT model_provider FROM threads").fetchone()[0], "old")
+        with contextlib.closing(sqlite3.connect(p)) as con, con: self.assertEqual(con.execute("SELECT model_provider FROM threads").fetchone()[0], "old")
         m.doctor(self.home, True)
-        with sqlite3.connect(p) as con: self.assertEqual(con.execute("SELECT model_provider,has_user_event FROM threads").fetchone(), ("openai", 1))
+        with contextlib.closing(sqlite3.connect(p)) as con, con: self.assertEqual(con.execute("SELECT model_provider,has_user_event FROM threads").fetchone(), ("openai", 1))
         self.assertEqual(session.read_bytes(), b'{"synthetic":"original"}\n')
         self.assertTrue(list((self.home / "account-switch/backups").glob("*/state_5.sqlite")))
 
@@ -162,6 +163,15 @@ class Tests(unittest.TestCase):
         before = core.read_bytes()
         with self.assertRaises(ValueError): m.install(self.home)
         self.assertEqual(core.read_bytes(), before)
+
+    def test_installed_launcher_runs_with_spaces_in_path(self):
+        home = self.home / "home with spaces"
+        m.install(home)
+        launcher = home / "bin" / ("codex-account-switch.cmd" if os.name == "nt" else "codex-account-switch")
+        env = dict(os.environ, CODEX_HOME=str(home))
+        r = subprocess.run([str(launcher), "status"], env=env, capture_output=True, text=True, timeout=15)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("unmanaged", r.stdout)
 
     def test_cli_status_read_only(self):
         self.assertEqual(m.main(["--home", str(self.home / "absent"), "status"]), 0)
